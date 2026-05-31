@@ -1,0 +1,6 @@
+whoami → mostra o utilizador atual
+pwd → mostra o diretório atual
+ls → lista ficheiros
+uname -a → informações de sistema
+hostname → nome de computador
+date → data e hora
