@@ -1,0 +1,4 @@
+total 0
+-rw-rw-r-- 1 varsanches varsanches 0 Jun  1 20:25 publico.txt
+-rw-rw-r-- 1 varsanches varsanches 0 Jun  1 20:25 restrito.txt
+-rw-rw-r-- 1 varsanches varsanches 0 Jun  1 20:25 script.sh

@@ -1,0 +1,1 @@
+uid=1000(varsanches) gid=1000(varsanches) groups=1000(varsanches),4(adm),24(cdrom),27(sudo),30(dip),46(plugdev),101(lxd)

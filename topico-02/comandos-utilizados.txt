@@ -1,0 +1,4 @@
+mkdir -p topico-02-individual/evidencias -> cria estrutura de pastas
+touch ficheiro -> cria ficheiros vazios
+cd -> muda de diretorio
+
