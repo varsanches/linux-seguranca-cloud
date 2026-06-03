@@ -1,0 +1,7 @@
+total 20
+drwxrwxr-x 2 ubuntu ubuntu 4096 Jun  3 23:28 .
+drwxrwxr-x 3 ubuntu ubuntu 4096 Jun  3 23:22 ..
+-rw-rw-r-- 1 ubuntu ubuntu   47 Jun  3 23:26 estrutura.txt
+-rw-rw-r-- 1 ubuntu ubuntu    0 Jun  3 23:28 ficheiros.txt
+-rw-rw-r-- 1 ubuntu ubuntu  400 Jun  3 23:28 sistema-operatico.txt
+-rw-rw-r-- 1 ubuntu ubuntu    7 Jun  3 23:26 sistema.txt

@@ -1,6 +1,12 @@
-whoami → mostra o utilizador atual
-pwd → mostra o diretório atual
-ls → lista ficheiros
-uname -a → informações de sistema
-hostname → nome de computador
-date → data e hora
+
+whoami - mostra o utilizador atual
+
+pwd - mostra a diretoria atual
+
+ls -la - lista ficheiros e permissões
+
+hostname - mostra o nome da máquina
+
+cat /etc/os-release - mostra o sistema operativo
+
+uname -a - mostra informação detalhada do sistema
