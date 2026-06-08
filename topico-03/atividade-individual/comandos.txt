@@ -1,0 +1,5 @@
+mkdir
+touch
+nano
+cp
+git push
