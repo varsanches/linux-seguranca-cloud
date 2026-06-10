@@ -1,0 +1,12 @@
+sudo apt update
+sudo apt upgrade -y
+sudo ufw enable
+sudo ufw allow 22
+sudo ufw allow 80
+sudo ufw allow 443
+sudo ufw deny 3306
+sudo ufw status
+git status
+git add .
+git commit -m "Adiciona atividade individual topico-04"
+git push
