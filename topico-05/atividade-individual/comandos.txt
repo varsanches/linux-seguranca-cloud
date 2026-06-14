@@ -1,0 +1,15 @@
+# Monitorização
+systemctl status nginx
+df -h
+free -h
+
+# Logs
+cat /var/log/nginx/access.log
+cat /var/log/nginx/error.log
+cat /var/log/auth.log
+
+# Manutenção
+systemctl restart nginx
+
+# Análise disco
+du -sh /*
