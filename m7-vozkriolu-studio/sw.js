@@ -1,5 +1,5 @@
 // VozKriolu Studio — service worker. Muda VERSAO quando alterares os ficheiros, para os telemóveis atualizarem.
-const VERSAO = 'vozkriolu-v1';
+const VERSAO = 'vozkriolu-v2';
 const CASCO = ['./', 'index.html', 'app.css', 'app.js', 'vendor/jspdf.umd.min.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {

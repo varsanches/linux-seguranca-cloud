@@ -903,6 +903,17 @@ function isHighDemandError(err, status) {
 async function executeSingleGeminiRequest(model, payload, apiKey) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
+  // Tempo-limite: sem isto, um pedido que a Google nunca responde deixava a app a «reconhecer áudio» para sempre.
+  const timeoutMs = window.VK_TIMEOUT_MS || 45000;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const erroTimeout = () => {
+    const err = new Error(`O serviço não respondeu em ${Math.round(timeoutMs / 1000)} segundos (está muito ocupado)`);
+    err.httpStatus = 504;
+    err.isTimeout = true;
+    return err;
+  };
+
   let response;
   try {
     response = await fetch(url, {
@@ -910,9 +921,12 @@ async function executeSingleGeminiRequest(model, payload, apiKey) {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: ctrl.signal
     });
   } catch (netErr) {
+    clearTimeout(timer);
+    if (ctrl.signal.aborted) throw erroTimeout();
     const err = new Error(`Falha de ligação à API Gemini (${netErr.message || 'Sem ligação à rede'}).`);
     err.httpStatus = 0;
     throw err;
@@ -930,10 +944,13 @@ async function executeSingleGeminiRequest(model, payload, apiKey) {
   try {
     data = await response.json();
   } catch (jsonErr) {
+    clearTimeout(timer);
+    if (ctrl.signal.aborted) throw erroTimeout();
     const err = new Error(`O serviço devolveu uma página de erro (HTTP ${response.status})`);
     err.httpStatus = response.status;
     throw err;
   }
+  clearTimeout(timer);
 
   if (!response.ok) {
     const errorDetails = data?.error?.message || `Erro do serviço Gemini (HTTP ${response.status})`;
@@ -984,6 +1001,12 @@ async function callGeminiWithRetry(stepName, payload, apiKey, onStatusUpdate) {
       const isDemand = isHighDemandError(err, err.httpStatus);
       if (!isDemand && (err.httpStatus === 400 || err.httpStatus === 401 || err.httpStatus === 403)) {
         throw err;
+      }
+
+      // Se o modelo principal nem respondeu a tempo, não vale a pena repetir: passa logo ao alternativo.
+      if (err.isTimeout) {
+        if (onStatusUpdate) onStatusUpdate(`O modelo principal não respondeu a tempo; a tentar o alternativo (${FALLBACK_MODEL})…`);
+        break;
       }
 
       if (attempt === 1) {

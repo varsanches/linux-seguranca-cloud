@@ -18,7 +18,7 @@ Autor: André Sanches. Interfaces desenhadas no **Stitch**; app desenvolvida no 
 Depois de aberta uma vez, a app abre mesmo **sem Internet** (gravar, repositório, PDF); a **transcrição** precisa de Internet.
 
 ## Chave da Gemini (para a transcrição)
-Carregue em **«Chave IA»** (cabeçalho) e cole a sua chave (grátis no Google AI Studio → «Get API key»). A chave fica **só neste aparelho** (localStorage) e é enviada apenas à Google. **Não vem no zip.** Sem chave, o resto funciona.
+Carregue em **«Chave IA»** (cabeçalho) e cole a sua chave (grátis no Google AI Studio → «Get API key»). A chave fica **só neste aparelho** (localStorage) e é enviada apenas à Google. **Não vem no zip.** Sem chave, o resto funciona. **Quem quiser testar a transcrição tem de usar a sua própria chave** (grátis, leva um minuto a criar); gravar, repositório, PDF e e-mail funcionam sem ela.
 
 ## O que foi testado
 - Versão no AI Studio (6/11/2026): gravar com o microfone, guardar e listar no Repositório, transcrever para crioulo (com repetição e modelo alternativo quando o serviço está ocupado), exportar PDF, preparar o e-mail no Gmail (enviado e recebido), mensagem clara quando falta a chave.
@@ -27,7 +27,7 @@ Carregue em **«Chave IA»** (cabeçalho) e cole a sua chave (grátis no Google 
 
 ## Limites conhecidos (declarados)
 - O crioulo é um **rascunho de IA** que precisa de revisão humana (o reconhecimento pode errar palavras, nomes e números).
-- A transcrição depende de Internet, da chave e do estado do serviço da Gemini (a app tenta outra vez e usa um modelo alternativo).
+- A transcrição depende de Internet, da chave e do estado do serviço da Gemini (a app tenta outra vez e usa um modelo alternativo). Cada pedido tem um **tempo-limite de 45 s**: se o modelo principal não responde, passa ao alternativo; se nada responde, a app avisa e a gravação fica guardada.
 - O e-mail é **preparado**, não enviado pela app; o PDF não vai anexado.
 - A persistência é do navegador (IndexedDB): some se se limparem os dados do site.
 - Para atualizar a app instalada, mudar `VERSAO` em `sw.js` ao alterar os ficheiros.
