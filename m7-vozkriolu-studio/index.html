@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>VozKriolu Studio - Estúdio de Áudio e Transcrição ALUPEC</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+  <script src="vendor/jspdf.umd.min.js"></script>
+  <script type="module">
+    try {
+      const { GoogleGenAI } = await import('https://esm.run/@google/genai');
+      window.GoogleGenAI = GoogleGenAI;
+    } catch (e) {
+      console.warn('@google/genai CDN indisponível, usando cliente nativo:', e);
+    }
+  </script>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0d1322">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="VozKriolu">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+</head>
+<body>
+  <!-- Header / Navigation -->
+  <header class="studio-header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4cd7f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v20M17 5v14M7 8v8M22 10v4M2 10v4"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">VozKriolu Studio</h1>
+          <span class="brand-subtitle">Áudio & Transcrição ALUPEC</span>
+        </div>
+      </div>
+      <div class="header-controls">
+        <button id="btnApiKey" class="btn-api-key" type="button" title="Configurar chave da Gemini" aria-label="Estado da chave Gemini">
+          <span id="apiKeyStatusDot" class="status-dot"></span>
+          <span id="apiKeyLabel">Chave IA ✓</span>
+        </button>
+        <div id="liveStatusBadge" class="status-badge status-ready">
+          <span class="status-dot"></span>
+          <span class="status-label">PRONTO</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="studio-nav">
+      <button class="nav-tab active" data-view="studio" id="tabStudio">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2v20M17 5v14M7 8v8M22 10v4M2 10v4"/>
+        </svg>
+        <span>Estúdio</span>
+      </button>
+      <button class="nav-tab" data-view="repository" id="tabRepository">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span>Repositório</span>
+      </button>
+      <button class="nav-tab" data-view="export" id="tabExport">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+        <span>Exportar e partilhar</span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- Notification Banner -->
+  <div id="notificationToast" class="notification-toast hidden">
+    <span id="notificationMessage"></span>
+    <button id="notificationClose" aria-label="Fechar">&times;</button>
+  </div>
+
+  <main class="main-content">
+    <!-- VIEW 1: ESTÚDIO -->
+    <section id="viewStudio" class="view-panel active">
+      <!-- Acoustic Console Card -->
+      <div class="studio-card console-card">
+        <div class="console-header">
+          <div>
+            <h2 id="sessionTitleDisplay" class="session-title">Nova Sessão de Estúdio</h2>
+            <div class="audio-specs">Amostragem: 44.1 kHz • IndexedDB Persistente</div>
+          </div>
+          <div id="reviewedIndicator" class="review-chip hidden">✓ REVISTO</div>
+        </div>
+
+        <!-- Waveform Canvas -->
+        <div class="waveform-container" id="waveformContainer">
+          <canvas id="waveformCanvas" width="800" height="120"></canvas>
+          <div class="waveform-overlay">
+            <span id="waveformCurrentTime" class="mono-time">00:00.0</span>
+            <span id="waveformTotalTime" class="mono-time">00:00.0</span>
+          </div>
+        </div>
+
+        <!-- SMPTE Big Timer Display -->
+        <div class="timer-display" id="smpteTimer">00:00:00.0</div>
+
+        <!-- Transport Control Bar -->
+        <div class="transport-bar">
+          <!-- Mandatory Solid Red Record Button -->
+          <div id="recordControlGroup" class="record-group">
+            <button id="btnRecord" class="btn-record" title="Gravar áudio pelo microfone">
+              <span class="rec-dot"></span>
+              <span id="btnRecordLabel">Gravar</span>
+            </button>
+            <button id="btnPauseRecord" class="btn-pause hidden" title="Pausar gravação">
+              ❚❚ Pausa
+            </button>
+            <button id="btnResumeRecord" class="btn-resume hidden" title="Retomar gravação">
+              ▶ Retomar
+            </button>
+            <button id="btnStopRecord" class="btn-stop hidden" title="Concluir gravação">
+              ■ Parar
+            </button>
+          </div>
+
+          <!-- Audio Playback Preview Button -->
+          <button id="btnPlayAudio" class="btn-icon" disabled title="Reproduzir áudio">
+            <svg id="playIconSvg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+          </button>
+
+          <!-- Mandatory Solid Blue Transcribe Button -->
+          <button id="btnTranscribe" class="btn-transcribe" disabled title="Transcrever com inteligência artificial para Crioulo ALUPEC">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            <span id="btnTranscribeLabel">Transcrever para crioulo</span>
+          </button>
+        </div>
+
+        <!-- Inline Error Message with Step -->
+        <div id="transcriptionErrorBanner" class="error-banner hidden">
+          <span class="error-icon">⚠</span>
+          <div class="error-content" style="flex: 1;">
+            <div>
+              <strong id="transcriptionErrorStep" class="error-step-tag"></strong>
+              <span id="transcriptionErrorText"></span>
+            </div>
+            <button id="btnOpenSettingsFromError" type="button" class="btn-chip-action hidden" style="margin-top: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; font-size: 11px; font-weight: 600; background: var(--surface-level-2); border: 1px solid var(--border-outline); border-radius: 6px; color: var(--cyan-accent); cursor: pointer;">
+              ⚙ Abrir Definições para configurar chave
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Linguistic Variant Selectors -->
+      <div class="studio-card config-card">
+        <h3 class="section-heading">Configuração Linguística da Transcrição</h3>
+
+        <!-- Dialect Variant -->
+        <div class="config-group">
+          <label class="config-label">VARIANTE DO CRIOULO (ALUPEC)</label>
+          <div class="chip-options" id="variantSelector">
+            <button type="button" class="chip active" data-variant="Santiago">Santiago (Badiu)</button>
+            <button type="button" class="chip" data-variant="São Vicente">São Vicente (Kriol d'Soncent)</button>
+            <button type="button" class="chip" data-variant="Sem adaptação">Sem adaptação</button>
+          </div>
+        </div>
+
+        <!-- Spoken Language -->
+        <div class="config-group">
+          <label class="config-label">LÍNGUA FALADA NO ÁUDIO</label>
+          <div class="chip-options" id="languageSelector">
+            <button type="button" class="chip active" data-lang="Automática">Automática</button>
+            <button type="button" class="chip" data-lang="Português">Português</button>
+            <button type="button" class="chip" data-lang="Crioulo">Crioulo de Cabo Verde</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dual-Stream Editor Card -->
+      <div class="studio-card editor-card">
+        <div class="editor-header">
+          <div>
+            <h3 class="editor-title">Crioulo de Cabo Verde (ALUPEC)</h3>
+            <span class="editor-subtitle">Texto editável adaptado à variante selecionada</span>
+          </div>
+
+          <!-- Review Checkbox: desaparece/desmarca se o texto for editado -->
+          <label class="review-checkbox-label" id="reviewCheckboxContainer">
+            <input type="checkbox" id="chkReviewed" class="review-checkbox">
+            <span class="checkbox-custom"></span>
+            <span class="checkbox-text">Já revi este texto</span>
+          </label>
+        </div>
+
+        <textarea id="txtKrioluEditor" class="kriolu-textarea" placeholder="A transcrição em Crioulo de Cabo Verde (ALUPEC) aparecerá aqui após o processamento. Poderá editar e corrigir qualquer palavra."></textarea>
+
+        <!-- Original Speech Transcription (Parallel Reference) -->
+        <div class="original-speech-box">
+          <div class="original-label">TRANSCRIÇÃO FIEL ORIGINAL (FONÉTICA / DETETADA)</div>
+          <div id="txtOriginalSpeech" class="original-content">Nenhum áudio transcrito nesta sessão.</div>
+        </div>
+      </div>
+
+      <!-- Dicas de Atalhos Section -->
+      <div class="studio-card shortcuts-card">
+        <div class="shortcuts-header">
+          <div class="shortcuts-title-row">
+            <span class="shortcuts-icon">⌨</span>
+            <h4 class="shortcuts-title">Dicas de Atalhos</h4>
+          </div>
+          <span class="shortcuts-badge">NAVEGAÇÃO RÁPIDA</span>
+        </div>
+        <p class="shortcuts-description">Utilize o teclado para alternar agilmente entre gravação, escuta e edição de texto:</p>
+        <div class="shortcuts-grid">
+          <div class="shortcut-item">
+            <div class="shortcut-keys"><kbd class="kbd-key">Alt</kbd> + <kbd class="kbd-key">R</kbd></div>
+            <span class="shortcut-desc">Iniciar / Parar Gravação</span>
+          </div>
+          <div class="shortcut-item">
+            <div class="shortcut-keys"><kbd class="kbd-key">Alt</kbd> + <kbd class="kbd-key">P</kbd></div>
+            <span class="shortcut-desc">Pausar / Retomar Gravação</span>
+          </div>
+          <div class="shortcut-item">
+            <div class="shortcut-keys"><kbd class="kbd-key">Espaço</kbd></div>
+            <span class="shortcut-desc">Reproduzir / Pausar Áudio</span>
+          </div>
+          <div class="shortcut-item">
+            <div class="shortcut-keys"><kbd class="kbd-key">Alt</kbd> + <kbd class="kbd-key">T</kbd></div>
+            <span class="shortcut-desc">Transcrever para Crioulo</span>
+          </div>
+          <div class="shortcut-item">
+            <div class="shortcut-keys"><kbd class="kbd-key">Alt</kbd> + <kbd class="kbd-key">E</kbd></div>
+            <span class="shortcut-desc">Focar no Editor Crioulo</span>
+          </div>
+          <div class="shortcut-item">
+            <div class="shortcut-keys"><kbd class="kbd-key">Alt</kbd> + <kbd class="kbd-key">1/2/3</kbd></div>
+            <span class="shortcut-desc">Alternar entre as 3 Vistas</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mandatory Disclaimers -->
+      <div class="disclaimer-banner">
+        <span class="disclaimer-icon">ℹ</span>
+        <div class="disclaimer-text">
+          <strong>Aviso:</strong> O crioulo é um rascunho de IA que precisa de revisão humana; a persistência depende do armazenamento local do navegador (IndexedDB); o e-mail só é preparado, não enviado.
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: REPOSITÓRIO -->
+    <section id="viewRepository" class="view-panel">
+      <!-- Search & Import Bar -->
+      <div class="repo-toolbar">
+        <div class="search-box">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="inputSearch" placeholder="Pesquisar por título...">
+          <button id="btnClearSearch" class="btn-clear hidden">&times;</button>
+        </div>
+
+        <label class="btn-import" title="Importar áudio (WAV, MP3, M4A, OGG, WebM <= 250MB)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+          </svg>
+          <span>Importar Áudio</span>
+          <input type="file" id="fileAudioInput" accept="audio/*,.wav,.mp3,.m4a,.ogg,.webm" class="hidden-input">
+        </label>
+      </div>
+
+      <!-- Action Row with Red Record Button -->
+      <div class="repo-action-row">
+        <button id="btnRepoNewRecord" class="btn-record-repo">
+          <span class="rec-dot"></span>
+          <span>Gravar nova sessão</span>
+        </button>
+      </div>
+
+      <!-- Storage Info Bar -->
+      <div class="storage-info-bar">
+        <span>💾 Armazenamento Local Persistente (IndexedDB sem servidor / sem contas)</span>
+        <span id="sessionCountBadge">0 sessões guardadas</span>
+      </div>
+
+      <!-- Sessions List Container -->
+      <div id="sessionListContainer" class="session-list">
+        <!-- Rendered dynamically via JS -->
+      </div>
+    </section>
+
+    <!-- VIEW 3: EXPORTAR E PARTILHAR -->
+    <section id="viewExport" class="view-panel">
+      <!-- Session Selector & Record Button Row -->
+      <div class="export-header-row">
+        <div class="session-picker-box">
+          <label class="config-label">SESSÃO SELECIONADA PARA EXPORTAÇÃO</label>
+          <select id="selectExportSession" class="export-select">
+            <option value="">Carregando sessões...</option>
+          </select>
+        </div>
+        <button id="btnExportRecord" class="btn-record-repo">
+          <span class="rec-dot"></span>
+          <span>Gravar</span>
+        </button>
+      </div>
+
+      <!-- Primary Action Cards -->
+      <div class="studio-card export-actions-card">
+        <h3 class="section-heading">Ações de Exportação e Envio</h3>
+
+        <!-- PDF Export Button -->
+        <button id="btnExportPdf" class="btn-action-primary" title="Exportar para documento PDF A4 paginado">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+          </svg>
+          <span>Exportar Transcrição em PDF (A4 Paginado com Unicode)</span>
+        </button>
+
+        <!-- Email Preparation Button -->
+        <button id="btnPrepareEmail" class="btn-action-secondary" title="Abrir Gmail ou programa de correio com a mensagem pronta">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+          <span>Preparar Envio por E-mail (Gmail / Correio)</span>
+        </button>
+
+        <!-- Secondary Export Actions -->
+        <div class="export-sub-actions">
+          <button id="btnCopyText" class="btn-chip-action">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            <span>Copiar Crioulo</span>
+          </button>
+          <button id="btnDownloadAudio" class="btn-chip-action">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+            <span>Descarregar Áudio</span>
+          </button>
+          <button id="btnBackToStudio" class="btn-chip-action">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v20M17 5v14M7 8v8M22 10v4M2 10v4"/>
+            </svg>
+            <span>Abrir no Estúdio</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Preview of Export Document -->
+      <div class="studio-card preview-card">
+        <div class="preview-header">
+          <h3 class="preview-title">Pré-visualização do Relatório</h3>
+          <span id="previewReviewStatus" class="review-status-tag">RASCUNHO</span>
+        </div>
+
+        <div id="previewMetaBox" class="preview-meta-box">
+          <!-- Filled dynamically -->
+        </div>
+
+        <div class="preview-section">
+          <div class="preview-label">CRIOULO DE CABO VERDE (ALUPEC)</div>
+          <div id="previewKrioluText" class="preview-text-box"></div>
+        </div>
+
+        <div class="preview-section">
+          <div class="preview-label">TRANSCRIÇÃO FIEL ORIGINAL</div>
+          <div id="previewOriginalText" class="preview-text-box preview-original"></div>
+        </div>
+      </div>
+
+      <!-- Mandatory Disclaimers -->
+      <div class="disclaimer-banner">
+        <span class="disclaimer-icon">ℹ</span>
+        <div class="disclaimer-text">
+          <strong>Aviso:</strong> O crioulo é um rascunho de IA que precisa de revisão humana; a persistência depende do armazenamento local do navegador; o e-mail só é preparado na sua aplicação de correio, não enviado automaticamente.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL: AUTORIZAÇÃO EXPLÍCITA PARA ENVIO À IA -->
+  <div id="modalAiConsent" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-icon">🤖</div>
+        <h3 class="modal-title">Autorização de Envio para IA</h3>
+      </div>
+      <p class="modal-body">
+        Para efetuar a transcrição fiel e a adaptação ortográfica em Crioulo de Cabo Verde (ALUPEC), uma cópia do ficheiro de áudio gravado será enviada para o serviço de inteligência artificial Gemini da Google.
+      </p>
+      <div class="modal-notice">
+        🔒 Se cancelar, <strong>nenhuma cópia de áudio</strong> será enviada e a gravação permanece guardada apenas no seu dispositivo.
+      </div>
+      <div class="modal-actions">
+        <button id="btnConsentCancel" class="btn-modal-cancel">Cancelar</button>
+        <button id="btnConsentConfirm" class="btn-modal-confirm">Autorizar e Transcrever</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIRMAÇÃO DE ELIMINAÇÃO -->
+  <div id="modalDelete" class="modal-backdrop hidden">
+    <div class="modal-card modal-danger">
+      <div class="modal-header">
+        <div class="modal-icon danger-icon">🗑</div>
+        <h3 class="modal-title">Eliminar Sessão</h3>
+      </div>
+      <p class="modal-body" id="deleteModalMessage">
+        Tem a certeza que deseja eliminar esta sessão de áudio? O ficheiro e todas as transcrições associadas serão permanentemente apagados do IndexedDB.
+      </p>
+      <div class="modal-actions">
+        <button id="btnDeleteCancel" class="btn-modal-cancel">Cancelar</button>
+        <button id="btnDeleteConfirm" class="btn-modal-danger">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIÁLOGO: FALTA A CHAVE DE ACESSO -->
+  <div id="modalApiKey" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modalApiKeyTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-icon">🔑</div>
+        <h3 id="modalApiKeyTitle" class="modal-title">Falta a chave de acesso</h3>
+      </div>
+
+      <!-- Alerta de Chave Recusada -->
+      <div id="modalApiKeyErrorAlert" class="error-banner hidden" style="margin-top: 0; padding: 10px 12px; font-size: 13px;">
+        <span class="error-icon">⚠</span>
+        <span id="modalApiKeyErrorText" style="color: #fca5a5;">A chave não foi aceite pela Google; confirma-a e tenta outra vez</span>
+      </div>
+
+      <p class="modal-body" style="margin: 0; font-size: 13.5px; color: var(--text-on-surface);">
+        Insere uma chave da Gemini para transcrever o áudio:
+      </p>
+
+      <div class="form-group" style="margin: 2px 0;">
+        <label for="inputApiKey" style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; font-family: var(--font-mono);">CHAVE GEMINI API:</label>
+        <div style="position: relative; display: flex; align-items: center;">
+          <input type="password" id="inputApiKey" class="input-text" autocomplete="off" spellcheck="false" placeholder="Cola aqui a tua chave AIza..." style="width: 100%; font-family: var(--font-mono); font-size: 14px; padding: 12px 46px 12px 12px; min-height: 48px; background: var(--surface-level-2); border: 1px solid var(--border-outline); border-radius: 8px; color: var(--text-on-surface); outline: none; box-sizing: border-box;">
+          <button type="button" id="btnToggleApiKeyVisibility" style="position: absolute; right: 6px; width: 38px; height: 38px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; display: inline-flex; align-items: center; justify-content: center;" title="Ver ou esconder a chave" aria-label="Ver ou esconder a chave">👁</button>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin: 2px 0; font-size: 12px;">
+        <span id="apiKeyModalStatusText" style="color: var(--text-muted); font-size: 11.5px;"></span>
+        <button type="button" id="btnClearApiKey" style="background: transparent; border: none; color: #ef4444; cursor: pointer; text-decoration: underline; font-size: 12px; min-height: 36px; padding: 6px 0;">Apagar a minha chave</button>
+      </div>
+
+      <div class="modal-actions" style="margin-top: 6px;">
+        <button id="btnApiKeyCancel" type="button" class="btn-modal-cancel">Cancelar</button>
+        <button id="btnApiKeySave" type="button" class="btn-modal-confirm">Guardar e transcrever</button>
+      </div>
+
+      <div class="modal-notice-small" style="font-size: 11px; color: var(--text-muted); line-height: 1.4; margin-top: 4px; text-align: center;">
+        Cria uma chave grátis no <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: var(--cyan-accent); text-decoration: underline;">Google AI Studio (Get API key)</a>. A chave fica só neste aparelho.
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    // PWA: só regista o service worker em https ou localhost (é o que os navegadores exigem)
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+      window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function (e) { console.warn('Service worker:', e); }); });
+    }
+  </script>
+</body>
+</html>
